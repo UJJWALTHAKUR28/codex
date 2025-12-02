@@ -1,0 +1,73 @@
+############################
+# Global Ignored Files
+############################
+.DS_Store
+*.log
+*.tmp
+*.temp
+*~
+*.swp
+*.swo
+tmp/
+temp/
+
+############################
+# Python Backend (backend/)
+############################
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/*.so
+backend/.Python
+backend/build/
+backend/develop-eggs/
+backend/dist/
+backend/downloads/
+backend/eggs/
+backend/.eggs/
+backend/lib/
+backend/lib64/
+backend/parts/
+backend/sdist/
+backend/var/
+backend/wheels/
+backend/*.egg-info/
+backend/.installed.cfg
+backend/*.egg
+backend/MANIFEST
+backend/.coverage
+backend/.pytest_cache/
+backend/htmlcov/
+
+# Python virtual environments
+backend/.env
+backend/.venv
+backend/env/
+backend/venv/
+backend/ENV/
+backend/env.bak/
+backend/venv.bak/
+
+############################
+# Node Frontend (frontend/)
+############################
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+
+# Frontend environment files
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+############################
+# IDEs
+############################
+.vscode/
+.idea/
