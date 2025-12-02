@@ -14,7 +14,8 @@ app = FastAPI(title="AI Code Auditor API", version="2.0.0")
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8000"],
+    allow_origins=["http://localhost:3000", "http://localhost:8000","https://codex-k8eu.onrender.com",  # Add your frontend URL
+        "https://codexai-lwoi.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
