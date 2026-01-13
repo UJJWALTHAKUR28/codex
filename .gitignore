@@ -62,6 +62,7 @@ frontend/.pnpm-debug.log*
 
 # Frontend environment files
 frontend/.env.local
+frontend/.env
 frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
