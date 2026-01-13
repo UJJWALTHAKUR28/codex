@@ -7,37 +7,42 @@ Requirements:
 Authentication:
   Set GEMINI_API_KEY in env or pass into GeminiLLMReal(api_key=...)
 """
-import os, json, textwrap, re
+import os, json, textwrap, re, time, random
 from dotenv import load_dotenv
 from app.services.enhancement import CodeEnhancementAnalyzer
 load_dotenv()
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 class GeminiLLMReal:
-    def __init__(self, api_key: str = None, model: str = 'gemini-1.5-mini'):
+    def __init__(self, api_key: str = None, model: str = 'gemini-2.5-flash'):
         self.api_key = api_key or GEMINI_API_KEY
         self.model = model
-        self.genai = None
-        self.model_obj = None
+        self.client = None
         self.enhancement_analyzer = CodeEnhancementAnalyzer()
         try:
-            import google.generativeai as genai
-            genai.configure(api_key=self.api_key)
-            self.genai = genai
-            self.model_obj = genai.GenerativeModel(model)
+            from google import genai
+            self.client = genai.Client(api_key=self.api_key)
         except Exception as e:
-            self.genai = None
-            self.model_obj = None
+            self.client = None
     
     def detect_issues(self, files):
         """Detect bugs, vulnerabilities, and issues."""
         prompt = self._build_issue_detection_prompt(files)
         # Use SDK if available
-        if self.model_obj:
-            try:
-                resp = self.model_obj.generate_content(prompt)
-                text = resp.text
-            except Exception as e:
+        if self.client:
+            max_retries = 3
+            base_delay = 2
+            for attempt in range(max_retries):
+                try:
+                    resp = self.client.models.generate_content(model=self.model, contents=prompt)
+                    text = resp.text
+                    break
+                except Exception as e:
+                    if "429" in str(e) and attempt < max_retries - 1:
+                        time.sleep(base_delay * (2 ** attempt) + random.uniform(0, 1))
+                        continue
+                    return self._heuristic_detect(files)
+            else:
                 return self._heuristic_detect(files)
         else:
             # Fallback: return heuristic detections
@@ -73,12 +78,20 @@ class GeminiLLMReal:
 
     def generate_patch(self, files, issues):
         prompt = self._build_patch_prompt(files, issues)
-        if self.model_obj:
-            try:
-                resp = self.model_obj.generate_content(prompt)
-                patch_text = resp.text
-                return patch_text
-            except Exception as e:
+        if self.client:
+            max_retries = 3
+            base_delay = 2
+            for attempt in range(max_retries):
+                try:
+                    resp = self.client.models.generate_content(model=self.model, contents=prompt)
+                    patch_text = resp.text
+                    return patch_text
+                except Exception as e:
+                    if "429" in str(e) and attempt < max_retries - 1:
+                        time.sleep(base_delay * (2 ** attempt) + random.uniform(0, 1))
+                        continue
+                    return self._generate_fallback_patch(issues, files)
+            else:
                 return self._generate_fallback_patch(issues, files)
         else:
             # Fallback simple patch
@@ -161,23 +174,66 @@ class GeminiLLMReal:
 
     def _build_issue_detection_prompt(self, files):
         header = textwrap.dedent("""
-            You are a code review assistant. Analyze the following files and return a JSON array of issues.
-            Each issue must be a JSON object with keys: title, description, severity (low|medium|high), file, line, type (bug|vuln|style|info).
-            Return only valid JSON — do not include extra explanation.
+            You are a Senior Principal Software Engineer and Security Researcher.
+            Analyze the provided code files deeply for:
+            1. Critical Security Vulnerabilities (OWASP Top 10, Injection, Auth flaws)
+            2. Major Bugs & Logic Errors
+            3. severe Performance Bottlenecks
+            4. Architectural Flaws
+
+            Output MUST be a valid JSON array of objects.
+            Schema:
+            [
+              {
+                "title": "Short title of the issue",
+                "description": "Detailed technical explanation",
+                "severity": "high" | "medium" | "low",
+                "file": "file_path",
+                "line": line_number,
+                "type": "bug" | "vuln" | "perf" | "arch",
+                "suggested_fix": "Description of how to fix it"
+              }
+            ]
+
+            Do not output markdown code blocks. Just the raw JSON string.
+            If no issues are found, return [].
         """)
         parts = []
         for f in files:
-            safe_content = f['content'][:4000]  # limit per file for prompt brevity
-            parts.append({'path': f['path'], 'content': safe_content})
-        payload = {'instructions': header, 'files': parts}
-        return json.dumps(payload)
+            # Increased limit for better context
+            safe_content = f['content'][:15000]
+            parts.append(f"File: {f['path']}\nContent:\n{safe_content}\n")
+        
+        return header + "\n\n" + "\n".join(parts)
 
     def _build_patch_prompt(self, files, issues):
         header = textwrap.dedent("""
-            You are an expert software engineer. Given the files and the list of issues, produce unified diff patches that fix the issues.
-            Use standard unified diff format starting with '*** Begin Patch for <path>' and ending with '*** End Patch'.
-            For each file include the full updated file content between those markers.
-            Do not include explanations — only the patches.
+            You are a DevOps Engineer and Code Expert.
+            Your task is to generate executable UNIFIED DIFF patches to fix the identified issues.
+            
+            Rules:
+            1. Return ONLY the unified diffs. No explanations, no markdown.
+            2. Each file patch must start with `diff --git a/path b/path` standard format or `--- a/path` and `+++ b/path`.
+            3. Ensure context lines match exactly so the patch applies cleanly.
+            4. Fix ALL high severity issues provided.
+
+            Issues to fix:
+            """ + json.dumps(issues, indent=2) + """
+            
+            Output format:
+            --- a/path/to/file.py
+            +++ b/path/to/file.py
+            @@ -10,4 +10,4 @@
+             original line
+            -broken line
+            +fixed line
+             context line
         """)
-        payload = { 'instructions': header, 'issues': issues, 'files': [{ 'path': f['path'], 'content': f['content'][:4000]} for f in files] }
-        return json.dumps(payload)
+        
+        parts = []
+        for f in files:
+            # Provide full content for accurate patching
+            safe_content = f['content'][:20000]
+            parts.append(f"File: {f['path']}\nContent:\n{safe_content}\n")
+        
+        return header + "\n\n" + "\n".join(parts)

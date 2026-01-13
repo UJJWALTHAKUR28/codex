@@ -2,13 +2,13 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useRouter } from "next/router";
-import { 
-  FiLogOut, 
-  FiGithub, 
-  FiGlobe, 
-  FiSettings, 
-  FiZap, 
-  FiShield, 
+import {
+  FiLogOut,
+  FiGithub,
+  FiGlobe,
+  FiSettings,
+  FiZap,
+  FiShield,
   FiTrendingUp,
   FiChevronRight,
   FiCheck,
@@ -42,6 +42,11 @@ export default function Dashboard() {
   const [jobId, setJobId] = useState(null);
   const [hosting, setHosting] = useState(null);
   const [providers, setProviders] = useState([]);
+
+  const [apiKey, setApiKey] = useState("");
+  const [modelPreference, setModelPreference] = useState("gemini-2.5-flash");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const [analysisMode, setAnalysisMode] = useState("your-repos");
   const [token, setToken] = useState(null);
@@ -146,6 +151,8 @@ export default function Dashboard() {
         auto_issue: false,
         auto_pr: false,
         hosting_provider: hosting,
+        gemini_api_key: apiKey,
+        model_preference: modelPreference,
       };
 
       const resp = await axios.post(
@@ -156,7 +163,7 @@ export default function Dashboard() {
       setJobId(resp.data.job_id);
       setSelectedRepo("");
       setCustomRepo("");
-      
+
       setTimeout(() => {
         setIsAnalyzing(false);
         router.push(`/results?job_id=${resp.data.job_id}`);
@@ -164,10 +171,11 @@ export default function Dashboard() {
 
     } catch (err) {
       setIsAnalyzing(false);
-      const detail =
-        err?.response?.data?.detail ||
-        err?.message ||
-        "Analysis failed";
+      let detail = err?.response?.data?.detail || err?.message || "Analysis failed";
+
+      if (err?.response?.status === 429 || (typeof detail === 'string' && detail.includes('429'))) {
+        detail = "⚠️ Rate Limit Exceeded (429). The Gemini API is currently busy. Please wait a minute and try again, or use a different API key.";
+      }
 
       setError(typeof detail === "object" ? JSON.stringify(detail) : detail);
       setLoading(false);
@@ -261,9 +269,9 @@ export default function Dashboard() {
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
+
         {/* Header */}
-        <motion.header 
+        <motion.header
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-12 pb-8 border-b border-white/10"
@@ -278,7 +286,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-100 via-blue-200 to-gray-100 bg-clip-text text-transparent">
-                 CodeX
+                  CodeX
                 </h1>
                 <p className="text-sm text-gray-400 mt-2">Enterprise-grade static analysis & security intelligence platform</p>
               </div>
@@ -313,7 +321,7 @@ export default function Dashboard() {
                 <p className="text-xs text-gray-400">Pro Plan · Unlimited Scans</p>
               </div>
             </div>
-            
+
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -327,7 +335,7 @@ export default function Dashboard() {
         </motion.header>
 
         {/* Application Features Grid */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -351,28 +359,25 @@ export default function Dashboard() {
                 className={`relative overflow-hidden rounded-2xl border p-6 transition-all ${feature.color} ${feature.borderColor} group cursor-pointer`}
               >
                 {/* Status badge */}
-                <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-medium ${
-                  feature.status === 'active' 
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                    : feature.status === 'recommended'
+                <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-medium ${feature.status === 'active'
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                  : feature.status === 'recommended'
                     ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                     : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                }`}>
-                  {feature.status === 'active' ? 'Active' : 
-                   feature.status === 'recommended' ? 'Recommended' : 'Optional'}
+                  }`}>
+                  {feature.status === 'active' ? 'Active' :
+                    feature.status === 'recommended' ? 'Recommended' : 'Optional'}
                 </div>
 
                 <div className="mb-6">
-                  <div className={`inline-flex p-3 rounded-xl mb-4 ${
-                    feature.id === 1 ? 'bg-red-500/20' :
+                  <div className={`inline-flex p-3 rounded-xl mb-4 ${feature.id === 1 ? 'bg-red-500/20' :
                     feature.id === 2 ? 'bg-blue-500/20' :
-                    feature.id === 3 ? 'bg-green-500/20' : 'bg-purple-500/20'
-                  }`}>
-                    <feature.icon className={`text-xl ${
-                      feature.id === 1 ? 'text-red-400' :
+                      feature.id === 3 ? 'bg-green-500/20' : 'bg-purple-500/20'
+                    }`}>
+                    <feature.icon className={`text-xl ${feature.id === 1 ? 'text-red-400' :
                       feature.id === 2 ? 'text-blue-400' :
-                      feature.id === 3 ? 'text-green-400' : 'text-purple-400'
-                    }`} />
+                        feature.id === 3 ? 'text-green-400' : 'text-purple-400'
+                      }`} />
                   </div>
                   <h3 className="text-lg font-bold mb-2">{feature.title}</h3>
                   <p className="text-sm text-gray-400">{feature.description}</p>
@@ -381,11 +386,10 @@ export default function Dashboard() {
                 <div className="space-y-3 mb-6">
                   {feature.details.map((detail, idx) => (
                     <div key={idx} className="flex items-center gap-2 text-sm">
-                      <FiCheck className={`text-sm ${
-                        feature.id === 1 ? 'text-red-400' :
+                      <FiCheck className={`text-sm ${feature.id === 1 ? 'text-red-400' :
                         feature.id === 2 ? 'text-blue-400' :
-                        feature.id === 3 ? 'text-green-400' : 'text-purple-400'
-                      }`} />
+                          feature.id === 3 ? 'text-green-400' : 'text-purple-400'
+                        }`} />
                       <span className="text-gray-300">{detail}</span>
                     </div>
                   ))}
@@ -400,7 +404,7 @@ export default function Dashboard() {
         {/* Repository Analysis Panel */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
           {/* Repository Selection */}
-          <motion.div 
+          <motion.div
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.3 }}
@@ -428,11 +432,10 @@ export default function Dashboard() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setAnalysisMode(mode.id)}
-                    className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-lg transition-all ${
-                      analysisMode === mode.id
-                        ? "bg-gradient-to-r from-green-600 to-green-600 text-white shadow-lg shadow-green-500/25"
-                        : "text-gray-400 hover:text-white hover:bg-white/5"
-                    }`}
+                    className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-lg transition-all ${analysisMode === mode.id
+                      ? "bg-gradient-to-r from-green-600 to-green-600 text-white shadow-lg shadow-green-500/25"
+                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}
                   >
                     <mode.icon className="text-lg" />
                     <span className="font-medium">{mode.label}</span>
@@ -440,105 +443,224 @@ export default function Dashboard() {
                 ))}
               </div>
 
-              {/* Repository Input */}
-              <div className="space-y-6">
-                {analysisMode === "your-repos" ? (
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="text-sm font-medium text-gray-300">
-                        Select from your repositories
-                      </label>
-                      <button 
-                        onClick={fetchUserRepos}
-                        disabled={reposLoading}
-                        className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300"
-                      >
-                        <FiRefreshCw className={`${reposLoading ? 'animate-spin' : ''}`} />
-                        Refresh
-                      </button>
+            </div>
+
+            {/* API Key Input */}
+            <div className="mb-8 p-6 bg-white/5 rounded-xl border border-white/10">
+              <div className="flex items-center gap-3 mb-4">
+                <FiLock className="text-yellow-400 text-xl" />
+                <h3 className="text-lg font-semibold">Gemini API Key</h3>
+              </div>
+              <p className="text-sm text-gray-400 mb-4">
+                Enter your Google Gemini API key to enable AI analysis.
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline ml-1">
+                  Get a key here
+                </a>
+              </p>
+              <input
+                type="password"
+                placeholder="Paste your Gemini API Key here (starts with AIza...)"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="w-full px-4 py-3 bg-black/50 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors mb-4"
+              />
+
+              <div className="flex items-center gap-3 mb-2">
+                <FiCpu className="text-blue-400 text-lg" />
+                <h3 className="text-sm font-semibold text-gray-300">Select AI Model</h3>
+              </div>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setModelPreference("gemini-1.5-flash")}
+                  className={`flex-1 p-3 rounded-lg border transition-all text-left ${modelPreference === "gemini-1.5-flash"
+                    ? "bg-blue-500/20 border-blue-500 text-white"
+                    : "bg-black/30 border-white/10 text-gray-400 hover:bg-white/5"
+                    }`}
+                >
+                  <div className="font-bold text-sm">Gemini 1.5 Flash</div>
+                  <div className="text-xs opacity-70">Fast & Efficient (Default)</div>
+                </button>
+                <button
+                  onClick={() => setModelPreference("gemini-2.5-flash")}
+                  className={`flex-1 p-3 rounded-lg border transition-all text-left ${modelPreference === "gemini-2.5-flash"
+                    ? "bg-blue-600/20 border-blue-500 text-white"
+                    : "bg-black/30 border-white/10 text-gray-400 hover:bg-white/5"
+                    }`}
+                >
+                  <div className="font-bold text-sm">Gemini 2.5 Flash</div>
+                  <div className="text-xs opacity-70">Next-Gen Reasoning & Speed</div>
+                </button>
+                <button
+                  onClick={() => setModelPreference("gemini-1.5-pro")}
+                  className={`flex-1 p-3 rounded-lg border transition-all text-left ${modelPreference === "gemini-1.5-pro"
+                    ? "bg-purple-500/20 border-purple-500 text-white"
+                    : "bg-black/30 border-white/10 text-gray-400 hover:bg-white/5"
+                    }`}
+                >
+                  <div className="font-bold text-sm">Gemini 1.5 Pro</div>
+                  <div className="text-xs opacity-70">Complex Reasoning & Coding</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Repository Input */}
+            <div className="space-y-6">
+              {analysisMode === "your-repos" ? (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <label className="text-sm font-medium text-gray-300">
+                      Select from your repositories
+                    </label>
+                    <button
+                      onClick={fetchUserRepos}
+                      disabled={reposLoading}
+                      className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300"
+                    >
+                      <FiRefreshCw className={`${reposLoading ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </button>
+                  </div>
+
+                  {reposLoading ? (
+                    <div className="py-16 text-center">
+                      <div className="inline-block w-14 h-14 border-3 border-gray-700 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+                      <p className="text-gray-500">Loading your repositories...</p>
                     </div>
-                    
-                    {reposLoading ? (
-                      <div className="py-16 text-center">
-                        <div className="inline-block w-14 h-14 border-3 border-gray-700 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-                        <p className="text-gray-500">Loading your repositories...</p>
-                      </div>
-                    ) : userRepos.length === 0 ? (
-                      <div className="py-12 text-center bg-gradient-to-b from-white/5 to-transparent rounded-xl border border-dashed border-white/10">
-                        <FiGithub className="w-16 h-16 mx-auto text-gray-600 mb-4" />
-                        <p className="text-gray-400 mb-3">No repositories found</p>
-                        <p className="text-sm text-gray-500">Connect your GitHub account to see repositories</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto pr-3">
-                        {userRepos.map((repo) => (
-                          <motion.div
-                            key={repo.full_name}
-                            whileHover={{ scale: 1.01, borderColor: "rgba(59, 130, 246, 0.5)" }}
-                            onClick={() => setSelectedRepo(repo.full_name)}
-                            className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                              selectedRepo === repo.full_name
-                                ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-500/50"
-                                : "bg-white/5 border-white/10 hover:border-white/20"
+                  ) : userRepos.length === 0 ? (
+                    <div className="py-12 text-center bg-gradient-to-b from-white/5 to-transparent rounded-xl border border-dashed border-white/10">
+                      <FiGithub className="w-16 h-16 mx-auto text-gray-600 mb-4" />
+                      <p className="text-gray-400 mb-3">No repositories found</p>
+                      <p className="text-sm text-gray-500">Connect your GitHub account to see repositories</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto pr-3">
+                      {userRepos.map((repo) => (
+                        <motion.div
+                          key={repo.full_name}
+                          whileHover={{ scale: 1.01, borderColor: "rgba(59, 130, 246, 0.5)" }}
+                          onClick={() => setSelectedRepo(repo.full_name)}
+                          className={`p-4 rounded-xl border cursor-pointer transition-all ${selectedRepo === repo.full_name
+                            ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-500/50"
+                            : "bg-white/5 border-white/10 hover:border-white/20"
                             }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className="p-2 bg-white/10 rounded-lg">
-                                  <FiGithub />
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold">{repo.name}</h4>
-                                  <div className="flex items-center gap-3 mt-1">
-                                    <span className="text-xs text-gray-400">{repo.full_name}</span>
-                                    {repo.language && (
-                                      <span className="px-2 py-1 bg-white/5 text-xs rounded-full">
-                                        {repo.language}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="p-2 bg-white/10 rounded-lg">
+                                <FiGithub />
                               </div>
-                              <div className="flex items-center gap-2">
-                                {selectedRepo === repo.full_name && (
-                                  <FiCheck className="text-green-400 text-xl" />
-                                )}
-                                <FiChevronRight className="text-gray-400" />
+                              <div>
+                                <h4 className="font-semibold">{repo.name}</h4>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <span className="text-xs text-gray-400">{repo.full_name}</span>
+                                  {repo.language && (
+                                    <span className="px-2 py-1 bg-white/5 text-xs rounded-full">
+                                      {repo.language}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-3">
-                        Public Repository Analysis
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl blur"></div>
+                            <div className="flex items-center gap-2">
+                              {selectedRepo === repo.full_name && (
+                                <FiCheck className="text-green-400 text-xl" />
+                              )}
+                              <FiChevronRight className="text-gray-400" />
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Search Public Repositories
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl blur"></div>
+                      <div className="relative flex gap-2">
                         <input
-                          placeholder="facebook/react or vuejs/vue"
+                          placeholder="Search (e.g., 'react' or 'user:google')"
                           value={customRepo}
                           onChange={(e) => setCustomRepo(e.target.value)}
-                          className="relative w-full px-5 py-4 bg-black/50 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent text-lg"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              // Trigger search
+                              setSearchResults([]);
+                              setIsSearching(true);
+                              axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/github/search`, {
+                                params: { q: customRepo, access_token: token }
+                              })
+                                .then(res => setSearchResults(res.data.repos))
+                                .catch(err => setError("Search failed"))
+                                .finally(() => setIsSearching(false));
+                            }
+                          }}
+                          className="flex-1 px-5 py-4 bg-black/50 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent text-lg"
                         />
+                        <button
+                          onClick={() => {
+                            setSearchResults([]);
+                            setIsSearching(true);
+                            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/github/search`, {
+                              params: { q: customRepo, access_token: token }
+                            })
+                              .then(res => setSearchResults(res.data.repos))
+                              .catch(err => setError("Search failed"))
+                              .finally(() => setIsSearching(false));
+                          }}
+                          className="px-6 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 transition-colors"
+                        >
+                          <FiGlobe className="text-xl" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-gray-400 bg-white/5 p-4 rounded-xl">
-                      <FiAlertCircle className="text-blue-400" />
-                      <span>Enter any public GitHub repository in format: owner/repository</span>
-                    </div>
+
+                    {/* Search Results */}
+                    {isSearching ? (
+                      <div className="mt-4 py-8 text-center">
+                        <div className="inline-block w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mb-2"></div>
+                        <p className="text-gray-500 text-sm">Searching GitHub...</p>
+                      </div>
+                    ) : searchResults.length > 0 ? (
+                      <div className="mt-4 grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
+                        {searchResults.map((repo) => (
+                          <div
+                            key={repo.full_name}
+                            onClick={() => {
+                              setCustomRepo(repo.full_name);
+                              setSearchResults([]); // Clear results to select
+                            }}
+                            className="p-3 bg-white/5 hover:bg-white/10 rounded-lg cursor-pointer flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-3">
+                              <img src={repo.owner_avatar} alt="" className="w-6 h-6 rounded-full" />
+                              <div>
+                                <p className="font-medium text-sm">{repo.full_name}</p>
+                                <p className="text-xs text-gray-500">⭐ {repo.stars}</p>
+                              </div>
+                            </div>
+                            <FiChevronRight className="text-gray-500" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                )}
-              </div>
+
+                  <div className="flex items-center gap-3 text-sm text-gray-400 bg-white/5 p-4 rounded-xl">
+                    <FiAlertCircle className="text-blue-400" />
+                    <span>Selected: <span className="text-white font-mono">{customRepo || "None"}</span></span>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
 
           {/* Analysis Configuration */}
-          <motion.div 
+          <motion.div
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
@@ -559,14 +681,12 @@ export default function Dashboard() {
                     </div>
                     <button
                       onClick={() => toggleFeature(feature.id)}
-                      className={`relative w-12 h-6 rounded-full transition ${
-                        feature.enabled ? 'bg-green-500' : 'bg-green-700'
-                      }`}
+                      className={`relative w-12 h-6 rounded-full transition ${feature.enabled ? 'bg-green-500' : 'bg-green-700'
+                        }`}
                     >
                       <span
-                        className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                          feature.enabled ? 'left-7' : 'left-7'
-                        }`}
+                        className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${feature.enabled ? 'left-7' : 'left-7'
+                          }`}
                       />
                     </button>
                   </div>
@@ -603,7 +723,7 @@ export default function Dashboard() {
             </div>
 
             {/* Quick Actions */}
-            <motion.div 
+            <motion.div
               whileHover={{ scale: 1.02 }}
               className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-2xl p-6 cursor-pointer"
             >
@@ -623,7 +743,7 @@ export default function Dashboard() {
         {/* Hosting Providers & Analyze */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
           <div className="lg:col-span-2">
-            <motion.div 
+            <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.5 }}
@@ -644,11 +764,10 @@ export default function Dashboard() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setHosting(null)}
-                  className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${
-                    hosting === null
-                      ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-500/50"
-                      : "bg-white/5 border-white/10 hover:border-white/20"
-                  }`}
+                  className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${hosting === null
+                    ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-500/50"
+                    : "bg-white/5 border-white/10 hover:border-white/20"
+                    }`}
                 >
                   <div className="text-3xl mb-2">🚫</div>
                   <span className="text-sm font-medium">None</span>
@@ -660,11 +779,10 @@ export default function Dashboard() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setHosting(p.name)}
-                    className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${
-                      hosting === p.name
-                        ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-500/50"
-                        : "bg-white/5 border-white/10 hover:border-white/20"
-                    }`}
+                    className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${hosting === p.name
+                      ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-500/50"
+                      : "bg-white/5 border-white/10 hover:border-white/20"
+                      }`}
                   >
                     <div className="text-3xl mb-2">{p.icon || "☁️"}</div>
                     <span className="text-sm font-medium">{p.name}</span>
@@ -675,7 +793,7 @@ export default function Dashboard() {
           </div>
 
           {/* Analyze Button */}
-          <motion.div 
+          <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.6 }}
@@ -686,17 +804,16 @@ export default function Dashboard() {
               <p className="text-gray-400 mb-8">
                 Get comprehensive insights into your codebase with our advanced analysis engine
               </p>
-              
+
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={analyze}
                 disabled={loading || !token}
-                className={`relative py-4 rounded-xl text-lg font-bold transition-all ${
-                  loading || !token
-                    ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-                    : "bg-gradient-to-r from-green-500 to-green-500 hover:from-green-700 hover:to-green-700 shadow-lg shadow-green-500/25"
-                }`}
+                className={`relative py-4 rounded-xl text-lg font-bold transition-all ${loading || !token
+                  ? "bg-gray-800 text-gray-600 cursor-not-allowed"
+                  : "bg-gradient-to-r from-green-500 to-green-500 hover:from-green-700 hover:to-green-700 shadow-lg shadow-green-500/25"
+                  }`}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl blur opacity-50"></div>
                 <div className="relative flex items-center justify-center gap-3">
@@ -718,7 +835,7 @@ export default function Dashboard() {
                   )}
                 </div>
               </motion.button>
-              
+
               <div className="mt-6 text-center">
                 <p className="text-sm text-gray-500">
                   <FiAlertCircle className="inline mr-2" />
@@ -730,7 +847,7 @@ export default function Dashboard() {
         </div>
 
         {/* Footer */}
-        <motion.footer 
+        <motion.footer
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.7 }}
@@ -744,10 +861,10 @@ export default function Dashboard() {
 
           </div>
         </motion.footer>
-      </div>
+      </div >
 
       {/* Analysis Overlay */}
-      <AnimatePresence>
+      < AnimatePresence >
         {isAnalyzing && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -768,7 +885,7 @@ export default function Dashboard() {
                 <p className="text-gray-400 mb-8 text-lg">
                   Scanning repository structure, dependencies, and code patterns...
                 </p>
-                
+
                 <div className="space-y-6 mb-8">
                   {[
                     { label: "Security Audit", color: "from-red-500 to-orange-500", delay: 0.3 },
@@ -779,7 +896,7 @@ export default function Dashboard() {
                     <div key={index} className="text-left">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-gray-300">{step.label}</span>
-                        <motion.span 
+                        <motion.span
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: step.delay }}
@@ -799,7 +916,7 @@ export default function Dashboard() {
                     </div>
                   ))}
                 </div>
-                
+
                 <div className="text-sm text-gray-500">
                   <FiClock className="inline mr-2" />
                   This typically takes 1-3 minutes for standard repositories
@@ -807,8 +924,9 @@ export default function Dashboard() {
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+        )
+        }
+      </AnimatePresence >
+    </div >
   );
 }

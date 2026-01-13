@@ -133,3 +133,54 @@ class UserReposService:
         except Exception as e:
             logger.error(f"Error fetching public repo: {str(e)}")
             return None
+
+    @staticmethod
+    def search_repositories(query: str, access_token: str = None):
+        """
+        Search for repositories on GitHub.
+        
+        Args:
+            query: Search query (e.g. "user:octocat topic:react")
+            access_token: Optional token for higher rate limits
+            
+        Returns:
+            List of matching repos
+        """
+        try:
+            headers = {}
+            if access_token:
+                headers["Authorization"] = f"token {access_token}"
+                
+            resp = requests.get(
+                f"{GITHUB_API}/search/repositories",
+                headers=headers,
+                params={"q": query, "per_page": 20, "sort": "stars"}
+            )
+            
+            if resp.status_code != 200:
+                logger.error(f"GitHub search failed: {resp.status_code}")
+                return []
+            
+            data = resp.json()
+            items = data.get("items", [])
+            
+            repos = []
+            for repo in items:
+                repos.append({
+                    "name": repo.get("name"),
+                    "full_name": repo.get("full_name"),
+                    "url": repo.get("html_url"),
+                    "clone_url": repo.get("clone_url"),
+                    "isPrivate": repo.get("private", False),
+                    "description": repo.get("description"),
+                    "language": repo.get("language"),
+                    "stars": repo.get("stargazers_count", 0),
+                    "owner": repo.get("owner", {}).get("login"),
+                    "owner_avatar": repo.get("owner", {}).get("avatar_url")
+                })
+                
+            return repos
+            
+        except Exception as e:
+            logger.error(f"Error searching repos: {str(e)}")
+            return []

@@ -19,6 +19,9 @@ class AnalyzeRequest(BaseModel):
     auto_issue: bool = False
     auto_pr: bool = False
     hosting_provider: Optional[str] = None
+    gemini_api_key: Optional[str] = None
+    model_preference: Optional[str] = "gemini-2.5-flash"
+    model_config = {"protected_namespaces": ()}
 
 class AnalyzeRepoRequest(BaseModel):
     """Analyze a repository by owner/repo name."""
@@ -27,6 +30,9 @@ class AnalyzeRepoRequest(BaseModel):
     auto_issue: bool = False
     auto_pr: bool = False
     hosting_provider: Optional[str] = None
+    gemini_api_key: Optional[str] = None
+    model_preference: Optional[str] = "gemini-2.5-flash"
+    model_config = {"protected_namespaces": ()}
 
 class CreateIssueRequest(BaseModel):
     job_id: str
@@ -66,7 +72,9 @@ async def analyze_repo(req: AnalyzeRepoRequest):
             access_token=req.access_token,
             auto_issue=req.auto_issue,
             auto_pr=req.auto_pr,
-            hosting_provider=req.hosting_provider
+            hosting_provider=req.hosting_provider,
+            gemini_api_key=req.gemini_api_key,
+            model_preference=req.model_preference
         )
         
         job_id = run_job_sync(analyze_req.dict())
@@ -82,7 +90,16 @@ async def get_user_repos(access_token: str):
         repos = UserReposService.get_user_repos(access_token)
         return {"repos": repos}
     except Exception as e:
-        logger.error(f"Error fetching user repos: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/github/search")
+async def search_repos(q: str, access_token: Optional[str] = None):
+    """Search for public repositories."""
+    try:
+        repos = UserReposService.search_repositories(q, access_token)
+        return {"repos": repos}
+    except Exception as e:
+        logger.error(f"Search error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/check-pr-access")
